@@ -125,6 +125,7 @@ class Moteurs:
         return self._envoyer("F") == "OK"
 
     # --- Raccourcis robot 2 roues (A = gauche, B = droite) ---
+    # Avec un seul moteur branché, B est ignoré par l'Arduino : tourner_* fait juste avancer/reculer A.
 
     def avancer(self, v=1.0):
         return self.set(v, v)
@@ -174,10 +175,11 @@ if __name__ == "__main__":
                 m.attendre_on()
 
                 # Petite séquence de test ; si on rappuie sur le bouton, ça s'arrête
+                # Un seul moteur pour l'instant, et sous ~70 % il risque de ne pas démarrer
                 etapes = [
-                    ("Avant 60 %",      lambda: m.avancer(0.6),        2),
-                    ("Tourne à gauche", lambda: m.tourner_gauche(0.5), 1),
-                    ("Arrière 60 %",    lambda: m.reculer(0.6),        2),
+                    ("Avant 100 %",  lambda: m.avancer(1.0), 2),
+                    ("Pause",        lambda: m.stop(),       1),
+                    ("Arrière 100 %", lambda: m.reculer(1.0), 2),
                 ]
                 for nom, action, duree in etapes:
                     if not action():

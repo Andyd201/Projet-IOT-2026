@@ -1,60 +1,93 @@
 /*
-  moteurs_arduino.ino - L'Arduino pilote le L298N, le Raspberry Pi envoie les ordres par USB (série).
+  moteurs_arduino.ino - L'Arduino pilote le L293D, le Raspberry Pi envoie les ordres par USB (série).
 
-  Branchement Arduino Uno -> L298N :
-    D5  -> ENA (PWM, vitesse moteur A)   | enlever le jumper ENA
-    D7  -> IN1
-    D8  -> IN2
-    D6  -> ENB (PWM, vitesse moteur B)   | enlever le jumper ENB
-    D9  -> IN3
-    D10 -> IN4
-    GND -> GND du L298N (masse commune avec l'alim des moteurs)
+  Un seul moteur, sur OUT1 / OUT2 du L293D (broches 3 et 6).
+  Branchement Arduino Uno -> L293D :
+    D3 -> IN1 (broche 2, PWM : règle la vitesse)
+    D4 -> IN2 (broche 7, pas PWM : sens seulement)
+    +5V -> EN1,2 (broche 1), VCC1 (broche 16) et VCC2 (broche 8)
+    GND -> broches 4, 5, 12, 13 du L293D (masse commune avec l'Arduino)
+  Si le moteur tourne dans le mauvais sens, mettre INVERSER à true.
+
+  Bouton ON/OFF de l'auto :
+    D7 -> une patte du bouton, GND -> l'autre patte (pas de résistance, on utilise le pull-up interne)
+  Chaque appui allume / éteint l'auto. Au démarrage, l'auto est éteinte.
 
   Raspberry Pi <-> Arduino : simple câble USB (alimente l'Arduino + communication).
 
   Protocole (une commande par ligne, 115200 bauds) :
-    A <vitesse>   moteur A, vitesse de -255 à 255 (négatif = arrière)   ex: A 150
-    B <vitesse>   moteur B                                               ex: B -200
-    M <a> <b>     les deux moteurs d'un coup                             ex: M 150 150
-    S             stop tout (roue libre)
-    F             freinage actif des deux moteurs
+    A <vitesse>   moteur, vitesse de -255 à 255 (négatif = arrière)      ex: A 150
+    M <a> <b>     compatibilité : seul <a> est utilisé                   ex: M 150 150
+    B <vitesse>   compatibilité : ignoré (pas de moteur B)
+    S             stop (roue libre)
+    F             freinage actif
+    E             état -> répond "ETAT ON" ou "ETAT OFF"
     P             ping -> répond "PONG"
   Réponse "OK" après chaque commande valide, "ERR" sinon.
+  A / B / M répondent "OFF" (et le moteur reste arrêté) si l'auto est éteinte.
+  À chaque appui sur le bouton, l'Arduino envoie de lui-même "ETAT ON" ou "ETAT OFF".
 */
 
-const int ENA = 5, IN1 = 7, IN2 = 8;
-const int ENB = 6, IN3 = 9, IN4 = 10;
+// D3 est PWM (vitesse), D4 ne l'est pas (sens). Ne pas les échanger.
+const int PWM = 3, SENS = 4;
 
-// Sécurité : si aucune commande reçue pendant ce délai, on arrête les moteurs.
+// Mettre à true si le moteur tourne à l'envers (au lieu d'inverser les fils).
+const bool INVERSER = false;
+
+const int BOUTON = 7;
+const unsigned long ANTI_REBOND_MS = 30;
+
+bool autoOn = false;
+bool boutonAppuye = false;
+unsigned long dernierChangementBouton = 0;
+
+// Sécurité : si aucune commande reçue pendant ce délai, on arrête le moteur.
 // 0 = désactivé. Mets par ex. 1000 si ton Pi envoie des ordres en continu.
 const unsigned long TIMEOUT_MS = 0;
 
 unsigned long derniereCommande = 0;
+unsigned long dernierCaractere = 0;
 String ligne = "";
 
-void setMoteur(int en, int inA, int inB, int vitesse) {
+void setMoteur(int vitesse) {
   vitesse = constrain(vitesse, -255, 255);
+  if (INVERSER) vitesse = -vitesse;
   if (vitesse > 0) {
-    digitalWrite(inA, HIGH);
-    digitalWrite(inB, LOW);
+    digitalWrite(SENS, LOW);
+    analogWrite(PWM, vitesse);
   } else if (vitesse < 0) {
-    digitalWrite(inA, LOW);
-    digitalWrite(inB, HIGH);
+    // SENS à HIGH, donc on inverse le PWM pour garder la même échelle de vitesse
+    digitalWrite(SENS, HIGH);
+    analogWrite(PWM, 255 + vitesse);
   } else {
-    digitalWrite(inA, LOW);
-    digitalWrite(inB, LOW);
+    digitalWrite(PWM, LOW);
+    digitalWrite(SENS, LOW);
   }
-  analogWrite(en, abs(vitesse));
 }
 
 void stopTout() {
-  setMoteur(ENA, IN1, IN2, 0);
-  setMoteur(ENB, IN3, IN4, 0);
+  setMoteur(0);
 }
 
 void freiner() {
-  digitalWrite(IN1, HIGH); digitalWrite(IN2, HIGH); analogWrite(ENA, 255);
-  digitalWrite(IN3, HIGH); digitalWrite(IN4, HIGH); analogWrite(ENB, 255);
+  digitalWrite(PWM, HIGH);
+  digitalWrite(SENS, HIGH);
+}
+
+void envoyerEtat() {
+  Serial.println(autoOn ? "ETAT ON" : "ETAT OFF");
+}
+
+void lireBouton() {
+  bool appuye = digitalRead(BOUTON) == LOW;
+  if (appuye == boutonAppuye || millis() - dernierChangementBouton < ANTI_REBOND_MS) return;
+  boutonAppuye = appuye;
+  dernierChangementBouton = millis();
+  if (!appuye) return;  // on bascule à l'appui, pas au relâchement
+
+  autoOn = !autoOn;
+  if (!autoOn) stopTout();
+  envoyerEtat();
 }
 
 void traiter(String cmd) {
@@ -65,15 +98,20 @@ void traiter(String cmd) {
   String args = cmd.substring(1);
   args.trim();
 
+  if (!autoOn && (c == 'A' || c == 'B' || c == 'M')) {
+    stopTout();
+    Serial.println("OFF");
+    return;
+  }
+
   if (c == 'A') {
-    setMoteur(ENA, IN1, IN2, args.toInt());
+    setMoteur(args.toInt());
   } else if (c == 'B') {
-    setMoteur(ENB, IN3, IN4, args.toInt());
+    // pas de moteur B
   } else if (c == 'M') {
     int esp = args.indexOf(' ');
     if (esp < 0) { Serial.println("ERR"); return; }
-    setMoteur(ENA, IN1, IN2, args.substring(0, esp).toInt());
-    setMoteur(ENB, IN3, IN4, args.substring(esp + 1).toInt());
+    setMoteur(args.substring(0, esp).toInt());
   } else if (c == 'S') {
     stopTout();
   } else if (c == 'F') {
@@ -81,6 +119,9 @@ void traiter(String cmd) {
   } else if (c == 'P') {
     Serial.println("PONG");
     derniereCommande = millis();
+    return;
+  } else if (c == 'E') {
+    envoyerEtat();
     return;
   } else {
     Serial.println("ERR");
@@ -92,14 +133,16 @@ void traiter(String cmd) {
 }
 
 void setup() {
-  pinMode(ENA, OUTPUT); pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT);
-  pinMode(ENB, OUTPUT); pinMode(IN3, OUTPUT); pinMode(IN4, OUTPUT);
+  pinMode(PWM, OUTPUT); pinMode(SENS, OUTPUT);
+  pinMode(BOUTON, INPUT_PULLUP);
   stopTout();
   Serial.begin(115200);
   Serial.println("PRET");
 }
 
 void loop() {
+  lireBouton();
+
   while (Serial.available()) {
     char ch = Serial.read();
     if (ch == '\n') {
@@ -108,6 +151,13 @@ void loop() {
     } else if (ch != '\r' && ligne.length() < 32) {
       ligne += ch;
     }
+    dernierCaractere = millis();
+  }
+
+  // Moniteur série sans fin de ligne (ex. Tinkercad) : on exécute après 50 ms sans rien recevoir
+  if (ligne.length() > 0 && millis() - dernierCaractere > 50) {
+    traiter(ligne);
+    ligne = "";
   }
 
   if (TIMEOUT_MS > 0 && millis() - derniereCommande > TIMEOUT_MS) {
