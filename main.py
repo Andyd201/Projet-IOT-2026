@@ -11,7 +11,7 @@ def executer(args):
     stop_event = threading.Event()
     services = [
         ("joystick", executer_joystick, (args.joystick_port, args.joystick_baud)),
-        ("distance", surveiller_distance),
+        ("distance", surveiller_distance, ()),
         ("moteurs", executer_moteurs, (args.moteurs_port,)),
     ]
     threads = []
