@@ -6,8 +6,8 @@ LiquidCrystal lcd(11, 10, 5, 4, 3, 2);
 
 // Déclaration des pins du capteur HC-SR04 
 // (On évite les pins 2 et 3 qui sont déjà occupés par l'écran LCD ci-dessus)
-#define trigPin 7
-#define echoPin 6
+#define trigPin 6
+#define echoPin 7
 
 // Variables pour le calcul de la distance
 long duration;

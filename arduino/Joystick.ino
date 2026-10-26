@@ -1,6 +1,6 @@
 // Déclaration des broches
-const int joystick = 2;  // Bouton connecté à la broche D2
-const int ledXPin = 3;    // LED pour l'axe X sur la broche D3
+const int joystick = 7;  // Bouton connecté à la broche D2
+const int ledXPin = 2;    // LED pour l'axe X sur la broche D3
 const int ledYPin = 4;    // LED pour l'axe Y sur la broche D4
 const int xAxisPin = A0;  // Axe X du joystick connecté à A0
 const int yAxisPin = A1;  // Axe Y du joystick connecté à A1
