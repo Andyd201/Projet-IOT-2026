@@ -1,10 +1,13 @@
 import argparse
 import threading
 
+from picamzero import Camera
 from distance import surveiller_distance
 from joystick import executer_joystick
 from moteurs_serie import executer_moteurs
 
+cam = Camera()
+cam.start_preview()
 
 def executer(args):
     """Lance le joystick, la distance et les moteurs en parallèle."""
