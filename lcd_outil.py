@@ -29,7 +29,7 @@ import serial
 import time
 
 # Remplace 'COM3' par ton port réel
-PORT = 'COM3'
+PORT = '/dev/ttyACM2'
 BAUD_RATE = 9600
 
 try:
