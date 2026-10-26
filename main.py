@@ -11,7 +11,7 @@ def executer(args):
     stop_event = threading.Event()
     services = [
         ("joystick", executer_joystick, (args.joystick_port, args.joystick_baud)),
-        ("distance", surveiller_distance, (args.distance_port)),
+        ("distance", surveiller_distance),
         ("moteurs", executer_moteurs, (args.moteurs_port,)),
     ]
     threads = []
@@ -45,5 +45,4 @@ if __name__ == "__main__":
     parser.add_argument("--joystick-port", default="/dev/ttyACM1")
     parser.add_argument("--joystick-baud", type=int, default=9600)
     parser.add_argument("--moteurs-port", default="/dev/ttyACM0")
-    parser.add_argument("--distance-port", default="/dev/ttyACM2")
     executer(parser.parse_args())
