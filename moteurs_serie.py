@@ -160,37 +160,49 @@ class Moteurs:
         self.fermer()
 
 
+def executer_moteurs(port="/dev/ttyACM0", stop_event=None):
+    """Exécute la séquence moteur de test jusqu'à la demande d'arrêt."""
+    import threading
+
+    stop_event = stop_event or threading.Event()
+
+    def changement(on):
+        print("\n[MOTEURS] Auto", "ALLUMÉE" if on else "ÉTEINTE")
+
+    print(f"[MOTEURS] Connexion à l'Arduino sur {port}...")
+    with Moteurs(port, on_change=changement) as m:
+        while not stop_event.is_set():
+            if not m.verifier():
+                stop_event.wait(0.05)
+                continue
+
+            etapes = [
+                ("Avant 100 %", lambda: m.avancer(1.0), 2),
+                ("Pause", lambda: m.stop(), 1),
+                ("Arrière 100 %", lambda: m.reculer(1.0), 2),
+            ]
+            for nom, action, duree in etapes:
+                if stop_event.is_set() or not action():
+                    break
+                print(f"\n[MOTEURS] {nom}")
+                fin = time.time() + duree
+                while (
+                    time.time() < fin
+                    and not stop_event.is_set()
+                    and m.verifier()
+                ):
+                    stop_event.wait(0.05)
+                if not m.auto_on:
+                    break
+            m.stop()
+            print("\n[MOTEURS] Séquence finie ou interrompue")
+
+
 if __name__ == "__main__":
     import sys
 
-    def changement(on):
-        print(">>> Auto", "ALLUMÉE" if on else "ÉTEINTE")
-
     port = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyACM0"
-    print(f"Connexion à l'Arduino sur {port}...")
-    with Moteurs(port, on_change=changement) as m:
-        try:
-            while True:
-                print("Appuie sur le bouton pour allumer l'auto...")
-                m.attendre_on()
-
-                # Petite séquence de test ; si on rappuie sur le bouton, ça s'arrête
-                # Un seul moteur pour l'instant, et sous ~70 % il risque de ne pas démarrer
-                etapes = [
-                    ("Avant 100 %",  lambda: m.avancer(1.0), 2),
-                    ("Pause",        lambda: m.stop(),       1),
-                    ("Arrière 100 %", lambda: m.reculer(1.0), 2),
-                ]
-                for nom, action, duree in etapes:
-                    if not action():
-                        break
-                    print(nom)
-                    fin = time.time() + duree
-                    while time.time() < fin and m.verifier():
-                        time.sleep(0.05)
-                    if not m.auto_on:
-                        break
-                m.stop()
-                print("Séquence finie ou interrompue")
-        except KeyboardInterrupt:
-            print("\nArrêt")
+    try:
+        executer_moteurs(port)
+    except KeyboardInterrupt:
+        print("\n[MOTEURS] Arrêt")
