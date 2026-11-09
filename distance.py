@@ -1,32 +1,30 @@
 import threading
 import time
+import lcd_outil
 
+def afficher_distances(avant, arriere):
+    """Affiche les mesures de l'avant et de l'arrière et gère les alertes."""
+    print(f"\n========================================")
+    print(f"[DISTANCE] Avant  : {avant:.1f} cm")
+    print(f"[DISTANCE] Arrière : {arriere:.1f} cm")
 
-def afficher_distance(distance):
-    """Affiche une mesure et indique si un objet est trop proche."""
-    print("\n────────────────────────────────────────────")
-    print(f"[DISTANCE] Distance mesurée : {distance:.1f} cm")
-
-    if 0 < distance < 15:
-        print("[DISTANCE] Alerte : Objet très proche ! (< 15 cm)")
-    else:
-        print("[DISTANCE] Zone dégagée.")
-
-    print("────────────────────────────────────────────")
-
+    if 0 < avant < 15:
+        print("[ALERTE] Obstacle TROP PROCHE à l'AVANT ! (< 15 cm)")
+    if 0 < arriere < 15:
+        print("[ALERTE] Obstacle TROP PROCHE à l'ARRIÈRE ! (< 15 cm)")
+        
+    print(f"========================================")
 
 def surveiller_distance(stop_event=None, intervalle=1.0):
-    """Surveille et affiche la distance jusqu'à la demande d'arrêt."""
-    import lcd_outil
-
+    """Surveille et affiche les distances en continu jusqu'à l'arrêt."""
     stop_event = stop_event or threading.Event()
     stop_event.wait(2)
     print("[DISTANCE] Surveillance démarrée.")
 
     while not stop_event.is_set():
-        afficher_distance(lcd_outil.get_distance())
+        avant, arriere = lcd_outil.get_distances()
+        afficher_distances(avant, arriere)
         stop_event.wait(intervalle)
-
 
 if __name__ == "__main__":
     try:

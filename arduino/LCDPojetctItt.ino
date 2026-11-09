@@ -1,56 +1,73 @@
-// Importation de la bibliothèque 'LiquidCrystal'
 #include <LiquidCrystal.h>
 
-// Déclaration des pins du LCD (12, 11, 5, 4, 3, 2)
+// Déclaration des pins du LCD
 LiquidCrystal lcd(11, 10, 5, 4, 3, 2);
 
-// Déclaration des pins du capteur HC-SR04 
-// (On évite les pins 2 et 3 qui sont déjà occupés par l'écran LCD ci-dessus)
-#define trigPin 6
-#define echoPin 7
+// Capteur Avant (HC-SR04)
+#define trigPinAv 6
+#define echoPinAv 7
 
-// Variables pour le calcul de la distance
-long duration;
-int distanceCm = 0;
+// Capteur Arrière (HC-SR04) - À adapter selon tes nouvelles pins libres
+#define trigPinAr 8
+#define echoPinAr 9
+
+// Variables pour les distances
+long durationAv, durationAr;
+int distanceAv = 0;
+int distanceAr = 0;
 
 void setup() {
-  // Initialisation des broches du capteur de distance
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
+  // Configuration des broches pour l'avant
+  pinMode(trigPinAv, OUTPUT);
+  pinMode(echoPinAv, INPUT);
+
+  // Configuration des broches pour l'arrière
+  pinMode(trigPinAr, OUTPUT);
+  pinMode(echoPinAr, INPUT);
+
   Serial.begin(9600);
 
   // Initialisation de l'écran LCD : 16 colonnes et 2 lignes
   lcd.begin(16, 2);
-
-  // Affiche 'Distance:' sur l'écran LCD (première ligne par défaut)
-  lcd.print("Distance:");
-  
 }
 
 void loop() {
-  // Envoi d'une impulsion ultrasonique de 10 microsecondes sur la pin Trig
-  digitalWrite(trigPin, LOW);
+  // --- 1. MESURE CAPTEUR AVANT ---
+  digitalWrite(trigPinAv, LOW);
   delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
+  digitalWrite(trigPinAv, HIGH);
   delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  
-  // Lecture du temps de trajet de l'onde sur la pin Echo
-  duration = pulseIn(echoPin, HIGH);
-  
-  // Calcul de la distance en centimètres
-  distanceCm = duration * 0.034 / 2;
+  digitalWrite(trigPinAv, LOW);
+  durationAv = pulseIn(echoPinAv, HIGH);
+  distanceAv = durationAv * 0.034 / 2;
 
-  // Positionne le curseur de l'écran LCD sur la colonne 0, ligne 1 (deuxième ligne)
+  // --- 2. MESURE CAPTEUR ARRIÈRE ---
+  digitalWrite(trigPinAr, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPinAr, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPinAr, LOW);
+  durationAr = pulseIn(echoPinAr, HIGH);
+  distanceAr = durationAr * 0.034 / 2;
+
+  // --- 3. AFFICHAGE SUR L'ÉCRAN LCD (16x2) ---
+  // Ligne 0 (première ligne) : Affichage de l'avant
+  lcd.setCursor(0, 0);
+  lcd.print("Av:");
+  lcd.print(distanceAv);
+  lcd.print("cm     "); // Espaces pour effacer les anciens caractères résiduels
+
+  // Ligne 1 (deuxième ligne) : Affichage de l'arrière
   lcd.setCursor(0, 1);
+  lcd.print("Ar:");
+  lcd.print(distanceAr);
+  lcd.print("cm     ");
 
-  // Affiche la valeur de la distance calculée
-  lcd.print(distanceCm);
+  // --- 4. ENVOI SÉRIE VERS PYTHON ---
+  // On envoie les deux valeurs séparées par une virgule (ex: "15,30")
+  Serial.print(distanceAv);
+  Serial.print(",");
+  Serial.println(distanceAr);
 
-  // Affiche ' cm' à la suite (avec des espaces pour effacer les anciens chiffres plus longs)
-  lcd.print(" cm      ");
-  Serial.println(distanceCm);
-
-  // Attend 500 ms avant de relever une nouvelle distance (tu peux ajuster si besoin)
-  delay(1000);
+  delay(500); // Pause d'une demi-seconde avant la prochaine mesure
 }
