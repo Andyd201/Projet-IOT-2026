@@ -4,13 +4,13 @@ import threading
 import math
 
 # ser = serial.Serial('/dev/ttyACM2', 9600)
-# ser = serial.Serial('COM3', 9600)
+ser = serial.Serial('COM3', 9600)
 
 # C'est juste pour le test
-class SerialSimule:
-    def write(self, commande: bytes) -> int:
-        print(f"[Arduino simulé] {commande.decode('ascii').strip()}")
-        return len(commande)
+# class SerialSimule:
+#     def write(self, commande: bytes) -> int:
+#         print(f"[Arduino simulé] {commande.decode('ascii').strip()}")
+#         return len(commande)
 
 etat_led = {
     "gauche": False,
@@ -39,3 +39,25 @@ def get_led_state(led):
     if led not in etat_led:
         raise ValueError("La LED doit être 'gauche' ou 'droite'")
     return etat_led[led]
+
+def avancer():
+    set_led("gauche", True)
+    set_led("droite", True)
+
+def reculer():
+    arret()
+    raise NotImplementedError(
+        "La marche arrière nécessite un pont en H pour inverser le sens des moteurs."
+    )
+
+def arret():
+    set_led("gauche", False)
+    set_led("droite", False)
+
+def tourner_droite():
+    set_led("gauche", False)
+    set_led("droite", True)
+
+def tourner_gauche():
+    set_led("droite", False)
+    set_led("gauche", True)

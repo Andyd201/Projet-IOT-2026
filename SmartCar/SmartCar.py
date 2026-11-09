@@ -1,15 +1,18 @@
 # Documentation: https://alivecode.ca/docs/aliot
-import threading
 from aliot.aliot_obj import AliotObj
-from time import sleep
-from utils import set_led, toggle_led, get_led_state
+from utils import (
+    avancer as avancer_voiture,
+    arret as arreter_voiture,
+    reculer as reculer_voiture,
+    tourner_droite as tourner_voiture_droite,
+    tourner_gauche as tourner_voiture_gauche,
+)
 
 # Création de l'objet à partir du fichier de configuration
 SmartCar = AliotObj("SmartCar")
 
 def avancer(data):
-    global direction
-    direction = None
+    avancer_voiture()
     SmartCar.update_doc({
         "/doc/avancer": True,
         "/doc/reculer": False,
@@ -20,8 +23,18 @@ def avancer(data):
     })
 
 def reculer(data):
-    global direction
-    direction = None
+    try:
+        reculer_voiture()
+    except NotImplementedError:
+        SmartCar.update_doc({
+            "/doc/avancer": False,
+            "/doc/reculer": False,
+            "/doc/droite": False,
+            "/doc/gauche": False,
+            "/doc/led_droite": False,
+            "/doc/led_gauche": False
+        })
+        raise
     SmartCar.update_doc({
         "/doc/avancer": False,
         "/doc/reculer": True,
@@ -32,8 +45,7 @@ def reculer(data):
     })
 
 def droite(data):
-    global direction
-    direction = "droite"
+    tourner_voiture_droite()
     SmartCar.update_doc({
         "/doc/avancer": False,
         "/doc/reculer": False,
@@ -44,8 +56,7 @@ def droite(data):
     })
 
 def gauche(data):
-    global direction
-    direction = "gauche"
+    tourner_voiture_gauche()
     SmartCar.update_doc({
         "/doc/avancer": False,
         "/doc/reculer": False,
@@ -56,8 +67,7 @@ def gauche(data):
     })
 
 def arret(data):
-    global direction
-    direction = None
+    arreter_voiture()
     SmartCar.update_doc({
         "/doc/avancer": False,
         "/doc/reculer": False,
@@ -66,24 +76,6 @@ def arret(data):
         "/doc/led_droite": False,
         "/doc/led_gauche": False
     })
-
-def clignoter_leds():
-    while True:
-        led = direction
-
-        if led in ("gauche", "droite"):
-            autre_led = "droite" if led == "gauche" else "gauche"
-            if get_led_state(autre_led):
-                set_led(autre_led, False)
-
-            toggle_led(led)
-            sleep(0.5)  # intervalle du clignotement
-        else:
-            for nom in ("gauche", "droite"):
-                if get_led_state(nom):
-                    set_led(nom, False)
-            sleep(0.1)
-threading.Thread(target=clignoter_leds, daemon=True).start()
 
 def start():
     pass
