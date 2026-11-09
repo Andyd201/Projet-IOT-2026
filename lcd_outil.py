@@ -1,7 +1,8 @@
 import serial
 import time
 
-PORT = '/dev/ttyACM2'  # Garde ton port habituel
+PORT = '/dev/ttyACM2'
+#PORT = 'COM3' # Garde ton port habituel
 BAUD_RATE = 9600
 
 try:
