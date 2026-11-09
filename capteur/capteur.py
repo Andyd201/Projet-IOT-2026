@@ -24,35 +24,37 @@ def eteindre(data):
 CRITICAL_DISTANCE = 15
 
 def start():
+    # Variables pour mémoriser les dernières valeurs valides (filtre anti-zéro)
+    derniere_avant = 0
+    derniere_arriere = 0
+
     while True:
         try:
-            # Lecture des distances depuis les capteurs
-            avant, arriere = lcd_outil.get_distances()
+            # Lecture brute des distances
+            avant_brut, arriere_brut = lcd_outil.get_distances()
+            
+            # Filtre anti-zéro
+            if avant_brut > 0:
+                avant = avant_brut
+                derniere_avant = avant_brut
+            else:
+                avant = derniere_avant
+
+            if arriere_brut > 0:
+                arriere = arriere_brut
+                derniere_arriere = arriere_brut
+            else:
+                arriere = derniere_arriere
             
             texte_lcd = f"Av:{avant:.0f}cm | Ar:{arriere:.0f}cm"
 
-            # Vérification si un obstacle est à moins de 15 cm
-            obstacle_avant = (0 < avant < CRITICAL_DISTANCE)
-            obstacle_arriere = (0 < arriere < CRITICAL_DISTANCE)
-
-            # Définition des états des LED pour le document
-            etat_led_droite = True if obstacle_avant else False
-            etat_led_gauche = True if obstacle_arriere else False
-
-            # Envoi des mesures et de l'état des LED au serveur ALIVEcode
+            # Envoi UNIQUEMENT des mesures et du texte au cloud.
+            # Le cloud se chargera d'allumer/éteindre les LED via tes déclencheurs.
             capteur.update_doc({
                 "/doc/distance_avant": avant,
                 "/doc/distance_arriere": arriere,
-                "/doc/lcd_texte": texte_lcd,
-                "/doc/led_droite": etat_led_droite,
-                "/doc/led_gauche": etat_led_gauche
+                "/doc/lcd_texte": texte_lcd
             })
-
-            # Affichage d'alertes dans la console de ton terminal
-            if obstacle_avant:
-                print("ALERTE: Obstacle proche à l'AVANT ! (< 15 cm)")
-            if obstacle_arriere:
-                print("ALERTE: Obstacle proche à l'ARRIÈRE ! (< 15 cm)")
 
             time.sleep(1)
             
