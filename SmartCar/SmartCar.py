@@ -14,7 +14,9 @@ def avancer(data):
         "/doc/avancer": True,
         "/doc/reculer": False,
         "/doc/droite": False,
-        "/doc/gauche": False
+        "/doc/gauche": False,
+        "/doc/led_droite": False,
+        "/doc/led_gauche": False
     })
 
 def reculer(data):
@@ -24,7 +26,9 @@ def reculer(data):
         "/doc/avancer": False,
         "/doc/reculer": True,
         "/doc/droite": False,
-        "/doc/gauche": False
+        "/doc/gauche": False,
+        "/doc/led_droite": False,
+        "/doc/led_gauche": False
     })
 
 def droite(data):
@@ -58,7 +62,9 @@ def arret(data):
         "/doc/avancer": False,
         "/doc/reculer": False,
         "/doc/droite": False,
-        "/doc/gauche": False
+        "/doc/gauche": False,
+        "/doc/led_droite": False,
+        "/doc/led_gauche": False
     })
 
 def clignoter_leds():
