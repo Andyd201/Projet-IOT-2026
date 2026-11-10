@@ -45,10 +45,8 @@ def avancer():
     set_led("droite", True)
 
 def reculer():
-    arret()
-    raise NotImplementedError(
-        "La marche arrière nécessite un pont en H pour inverser le sens des moteurs."
-    )
+    ser.write(b"G_REV\n")
+    ser.write(b"D_REV\n")
 
 def arret():
     set_led("gauche", False)

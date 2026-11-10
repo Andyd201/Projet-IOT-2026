@@ -23,18 +23,7 @@ def avancer(data):
     })
 
 def reculer(data):
-    try:
-        reculer_voiture()
-    except NotImplementedError:
-        SmartCar.update_doc({
-            "/doc/avancer": False,
-            "/doc/reculer": False,
-            "/doc/droite": False,
-            "/doc/gauche": False,
-            "/doc/led_droite": False,
-            "/doc/led_gauche": False
-        })
-        raise
+    reculer_voiture()
     SmartCar.update_doc({
         "/doc/avancer": False,
         "/doc/reculer": True,

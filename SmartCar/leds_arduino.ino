@@ -1,6 +1,7 @@
-// Définition des broches des moteurs
-const int MOTEUR_GAUCHE_PIN = 2;
-const int MOTEUR_DROIT_PIN = 3;
+// Broches fixes de l'Arduino Motor Shield Rev3
+const int DIR_GAUCHE_PIN = 12, PWM_GAUCHE_PIN = 3, FREIN_GAUCHE_PIN = 9;
+const int DIR_DROIT_PIN = 13, PWM_DROIT_PIN = 11, FREIN_DROIT_PIN = 8;
+const int VITESSE = 255;
 
 // Définition des broches des LED (ajuste selon ton montage, ex: pins 4 et 5)
 const int LED_GAUCHE_PIN = 4;
@@ -13,22 +14,48 @@ String commande = "";
 unsigned long tempsPrecedent = 0;
 const long intervalleClignotement = 500; // Intervalle de 500 ms (0.5s)
 bool etatLedBlink = LOW;
+bool moteurGaucheMarche = false;
+bool moteurDroitMarche = false;
+
+void commanderMoteur(bool gauche, int sens) {
+  int dirPin = gauche ? DIR_GAUCHE_PIN : DIR_DROIT_PIN;
+  int pwmPin = gauche ? PWM_GAUCHE_PIN : PWM_DROIT_PIN;
+  int freinPin = gauche ? FREIN_GAUCHE_PIN : FREIN_DROIT_PIN;
+
+  if (sens == 0) {
+    analogWrite(pwmPin, 0);
+    digitalWrite(freinPin, HIGH);
+  } else {
+    digitalWrite(freinPin, LOW);
+    digitalWrite(dirPin, sens > 0 ? HIGH : LOW);
+    analogWrite(pwmPin, VITESSE);
+  }
+
+  if (gauche) {
+    moteurGaucheMarche = sens != 0;
+  } else {
+    moteurDroitMarche = sens != 0;
+  }
+}
 
 void setup() {
   // Initialisation de la communication série
   Serial.begin(9600);
 
-  // Configuration des broches des moteurs en sortie
-  pinMode(MOTEUR_GAUCHE_PIN, OUTPUT);
-  pinMode(MOTEUR_DROIT_PIN, OUTPUT);
+  pinMode(DIR_GAUCHE_PIN, OUTPUT);
+  pinMode(PWM_GAUCHE_PIN, OUTPUT);
+  pinMode(FREIN_GAUCHE_PIN, OUTPUT);
+  pinMode(DIR_DROIT_PIN, OUTPUT);
+  pinMode(PWM_DROIT_PIN, OUTPUT);
+  pinMode(FREIN_DROIT_PIN, OUTPUT);
 
   // Configuration des broches des LED en sortie
   pinMode(LED_GAUCHE_PIN, OUTPUT);
   pinMode(LED_DROITE_PIN, OUTPUT);
 
   // Sécurité : tout éteindre au démarrage
-  digitalWrite(MOTEUR_GAUCHE_PIN, LOW);
-  digitalWrite(MOTEUR_DROIT_PIN, LOW);
+  commanderMoteur(true, 0);
+  commanderMoteur(false, 0);
   digitalWrite(LED_GAUCHE_PIN, LOW);
   digitalWrite(LED_DROITE_PIN, LOW);
 }
@@ -42,16 +69,22 @@ void loop() {
       commande.trim(); // Nettoie les espaces ou retours chariot
 
       if (commande == "G_ON") {
-        digitalWrite(MOTEUR_GAUCHE_PIN, HIGH);
+        commanderMoteur(true, 1);
       } 
       else if (commande == "G_OFF") {
-        digitalWrite(MOTEUR_GAUCHE_PIN, LOW);
+        commanderMoteur(true, 0);
+      }
+      else if (commande == "G_REV") {
+        commanderMoteur(true, -1);
       } 
       else if (commande == "D_ON") {
-        digitalWrite(MOTEUR_DROIT_PIN, HIGH);
+        commanderMoteur(false, 1);
       } 
       else if (commande == "D_OFF") {
-        digitalWrite(MOTEUR_DROIT_PIN, LOW);
+        commanderMoteur(false, 0);
+      }
+      else if (commande == "D_REV") {
+        commanderMoteur(false, -1);
       }
 
       commande = "";
@@ -67,11 +100,7 @@ void loop() {
     etatLedBlink = !etatLedBlink; // Inverse l'état (HIGH <-> LOW)
   }
 
-  // 3. Lecture de l'état actuel des moteurs
-  bool moteurGaucheMarche = (digitalRead(MOTEUR_GAUCHE_PIN) == HIGH);
-  bool moteurDroitMarche = (digitalRead(MOTEUR_DROIT_PIN) == HIGH);
-
-  // 4. Application de la logique des LED
+  // 3. Application de la logique des LED
   // LED gauche clignote SEULEMENT si le moteur gauche tourne et le droit est arrêté
   if (moteurGaucheMarche && !moteurDroitMarche) {
     digitalWrite(LED_GAUCHE_PIN, etatLedBlink);
