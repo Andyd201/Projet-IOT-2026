@@ -4,7 +4,7 @@ import threading
 import math
 
 # ser = serial.Serial('/dev/ttyACM2', 9600)
-ser = serial.Serial('COM3', 9600)
+ser = serial.Serial('COM4', 9600)
 
 # C'est juste pour le test
 # class SerialSimule:

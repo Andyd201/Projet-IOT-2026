@@ -1,22 +1,29 @@
-// Broches fixes de l'Arduino Motor Shield Rev3
-const int DIR_GAUCHE_PIN = 12, PWM_GAUCHE_PIN = 3, FREIN_GAUCHE_PIN = 9;
-const int DIR_DROIT_PIN = 13, PWM_DROIT_PIN = 11, FREIN_DROIT_PIN = 8;
+// --- BROCHES DU MOTOR SHIELD REV3 ---
+// Canal A (Moteur Gauche)
+const int DIR_GAUCHE_PIN = 12;
+const int PWM_GAUCHE_PIN = 3;
+const int FREIN_GAUCHE_PIN = 9;
+
+// Canal B (Moteur Droit)
+const int DIR_DROIT_PIN = 13;
+const int PWM_DROIT_PIN = 11;
+const int FREIN_DROIT_PIN = 8;
+
 const int VITESSE = 255;
 
-// Définition des broches des LED (ajuste selon ton montage, ex: pins 4 et 5)
-const int LED_GAUCHE_PIN = 4;
+// --- BROCHES DES LED ---
+const int LED_GAUCHE_PIN = 2;
 const int LED_DROITE_PIN = 5;
 
-// Variable pour stocker les données lues sur le port série
+// --- VARIABLES ---
 String commande = "";
-
-// Variables pour la gestion du clignotement sans bloquer le programme (millis)
 unsigned long tempsPrecedent = 0;
-const long intervalleClignotement = 500; // Intervalle de 500 ms (0.5s)
+const long intervalleClignotement = 500; // 500 ms (0.5s)
 bool etatLedBlink = LOW;
 bool moteurGaucheMarche = false;
 bool moteurDroitMarche = false;
 
+// Fonction de contrôle des moteurs
 void commanderMoteur(bool gauche, int sens) {
   int dirPin = gauche ? DIR_GAUCHE_PIN : DIR_DROIT_PIN;
   int pwmPin = gauche ? PWM_GAUCHE_PIN : PWM_DROIT_PIN;
@@ -27,7 +34,15 @@ void commanderMoteur(bool gauche, int sens) {
     digitalWrite(freinPin, HIGH);
   } else {
     digitalWrite(freinPin, LOW);
-    digitalWrite(dirPin, sens > 0 ? HIGH : LOW);
+    
+    if (gauche) {
+      // Moteur gauche normal
+      digitalWrite(dirPin, sens > 0 ? HIGH : LOW);
+    } else {
+      // Moteur droit INVERSÉ (on inverse HIGH et LOW)
+      digitalWrite(dirPin, sens > 0 ? LOW : HIGH);
+    }
+    
     analogWrite(pwmPin, VITESSE);
   }
 
@@ -39,9 +54,9 @@ void commanderMoteur(bool gauche, int sens) {
 }
 
 void setup() {
-  // Initialisation de la communication série
   Serial.begin(9600);
 
+  // Initialisation des broches moteurs
   pinMode(DIR_GAUCHE_PIN, OUTPUT);
   pinMode(PWM_GAUCHE_PIN, OUTPUT);
   pinMode(FREIN_GAUCHE_PIN, OUTPUT);
@@ -49,11 +64,11 @@ void setup() {
   pinMode(PWM_DROIT_PIN, OUTPUT);
   pinMode(FREIN_DROIT_PIN, OUTPUT);
 
-  // Configuration des broches des LED en sortie
+  // Initialisation des broches LED
   pinMode(LED_GAUCHE_PIN, OUTPUT);
   pinMode(LED_DROITE_PIN, OUTPUT);
 
-  // Sécurité : tout éteindre au démarrage
+  // Sécurité au démarrage : tout éteindre
   commanderMoteur(true, 0);
   commanderMoteur(false, 0);
   digitalWrite(LED_GAUCHE_PIN, LOW);
@@ -61,7 +76,7 @@ void setup() {
 }
 
 void loop() {
-  // 1. Lecture des commandes reçues via le port série (Python)
+  // 1. Lecture des commandes reçues via le port série
   while (Serial.available() > 0) {
     char caractere = Serial.read();
     
@@ -93,22 +108,20 @@ void loop() {
     }
   }
 
-  // 2. Gestion du rythme de clignotement (alternance toutes les 500ms)
+  // 2. Gestion du clignotement des LED (sans bloquer le programme)
   unsigned long tempsActuel = millis();
   if (tempsActuel - tempsPrecedent >= intervalleClignotement) {
     tempsPrecedent = tempsActuel;
-    etatLedBlink = !etatLedBlink; // Inverse l'état (HIGH <-> LOW)
+    etatLedBlink = !etatLedBlink;
   }
 
   // 3. Application de la logique des LED
-  // LED gauche clignote SEULEMENT si le moteur gauche tourne et le droit est arrêté
   if (moteurGaucheMarche && !moteurDroitMarche) {
     digitalWrite(LED_GAUCHE_PIN, etatLedBlink);
   } else {
     digitalWrite(LED_GAUCHE_PIN, LOW);
   }
 
-  // LED droite clignote SEULEMENT si le moteur droit tourne et le gauche est arrêté
   if (moteurDroitMarche && !moteurGaucheMarche) {
     digitalWrite(LED_DROITE_PIN, etatLedBlink);
   } else {
