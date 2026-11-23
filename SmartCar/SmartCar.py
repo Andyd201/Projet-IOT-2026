@@ -129,8 +129,9 @@ SmartCar.on_action_recv(action_id="reculer", callback=reculer)
 SmartCar.on_action_recv(action_id="droite", callback=droite)
 SmartCar.on_action_recv(action_id="gauche", callback=gauche)
 SmartCar.on_action_recv(action_id="arret", callback=arret)
-SmartCar.on_action_recv(action_id="allumer_led", callback=allumer_led)
-SmartCar.on_action_recv(action_id="eteindre_led", callback=eteindre_led)
+# callbacks pas utilisés??
+# SmartCar.on_action_recv(action_id="allumer_led", callback=allumer_led)
+# SmartCar.on_action_recv(action_id="eteindre_led", callback=eteindre_led)
 
 # Connexion de l'objet au serveur ALIVEcode
 SmartCar.run()
