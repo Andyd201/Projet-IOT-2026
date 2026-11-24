@@ -1,24 +1,60 @@
+import configparser
 import os
 import time
+import urllib.request
 
 import cv2
 import mediapipe as mp
+from mediapipe.tasks import python as mp_tasks
+from mediapipe.tasks.python import vision
 
 from aliot.aliot_obj import AliotObj
 
 hand_controller = AliotObj("HandController")
 
-SMART_CAR_ID = "99d9b337-c504-4d22-9007-4d2cf6d5543f"
+# L'ID de la voiture est lu dans config.ini (section [SmartCar])
+_config = configparser.ConfigParser()
+_config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config.ini"))
+SMART_CAR_ID = _config["SmartCar"]["obj_id"]
 FINGER_TIPS = [8, 12, 16, 20]
 COMMAND_DELAY = 0.4
 
-mp_draw = mp.solutions.drawing_utils
-mp_hands = mp.solutions.hands
+# Modèle de détection des mains (API MediaPipe Tasks, téléchargé au premier lancement)
+MODEL_URL = (
+    "https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
+    "hand_landmarker/float16/latest/hand_landmarker.task"
+)
+MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hand_landmarker.task")
+
+# Liens entre les 21 points de la main, pour dessiner le squelette
+HAND_CONNECTIONS = [
+    (0, 1), (1, 2), (2, 3), (3, 4),          # pouce
+    (0, 5), (5, 6), (6, 7), (7, 8),          # index
+    (5, 9), (9, 10), (10, 11), (11, 12),     # majeur
+    (9, 13), (13, 14), (14, 15), (15, 16),   # annulaire
+    (13, 17), (0, 17), (17, 18), (18, 19), (19, 20),  # auriculaire + paume
+]
 
 
-def detect_fingers(hand_landmarks, handedness):
-    landmarks = hand_landmarks.landmark
+def get_model_path():
+    """Télécharge le modèle de MediaPipe s'il n'est pas déjà présent."""
+    if not os.path.exists(MODEL_PATH):
+        print("Téléchargement du modèle MediaPipe (une seule fois)...")
+        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+    return MODEL_PATH
 
+
+def draw_hand(image, landmarks):
+    """Dessine les points et les liens de la main sur l'image."""
+    height, width = image.shape[:2]
+    points = [(int(p.x * width), int(p.y * height)) for p in landmarks]
+    for start, end in HAND_CONNECTIONS:
+        cv2.line(image, points[start], points[end], (255, 255, 255), 2)
+    for point in points:
+        cv2.circle(image, point, 4, (0, 0, 255), -1)
+
+
+def detect_fingers(landmarks, handedness):
     if handedness == "Right":
         thumb_open = landmarks[4].x < landmarks[3].x
     else:
@@ -112,11 +148,18 @@ def start():
     else:
         print("HandController connecté (sans fenêtre). Ctrl+C pour quitter.")
 
-    with mp_hands.Hands(
-        max_num_hands=2,
-        min_detection_confidence=0.5,
+    options = vision.HandLandmarkerOptions(
+        base_options=mp_tasks.BaseOptions(model_asset_path=get_model_path()),
+        running_mode=vision.RunningMode.VIDEO,
+        num_hands=2,
+        min_hand_detection_confidence=0.5,
+        min_hand_presence_confidence=0.5,
         min_tracking_confidence=0.5,
-    ) as hands_detector:
+    )
+    start_time = time.monotonic()
+    last_timestamp = -1
+
+    with vision.HandLandmarker.create_from_options(options) as hands_detector:
         while True:
             success, image = cap.read()
             if not success:
@@ -125,27 +168,26 @@ def start():
 
             image = cv2.flip(image, 1)
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            rgb_image.flags.writeable = False
-            results = hands_detector.process(rgb_image)
-            rgb_image.flags.writeable = True
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
+
+            # Le mode VIDEO exige des timestamps (ms) strictement croissants
+            timestamp = int((time.monotonic() - start_time) * 1000)
+            timestamp = max(timestamp, last_timestamp + 1)
+            last_timestamp = timestamp
+            results = hands_detector.detect_for_video(mp_image, timestamp)
 
             detected_hands = {}
 
-            if results.multi_hand_landmarks and results.multi_handedness:
-                for hand_landmarks, handedness_info in zip(
-                    results.multi_hand_landmarks,
-                    results.multi_handedness,
-                ):
-                    handedness = handedness_info.classification[0].label
-                    detected_hands[handedness] = detect_fingers(
-                        hand_landmarks,
-                        handedness,
-                    )
-                    mp_draw.draw_landmarks(
-                        image,
-                        hand_landmarks,
-                        mp_hands.HAND_CONNECTIONS,
-                    )
+            for hand_landmarks, handedness_info in zip(
+                results.hand_landmarks,
+                results.handedness,
+            ):
+                handedness = handedness_info[0].category_name
+                detected_hands[handedness] = detect_fingers(
+                    hand_landmarks,
+                    handedness,
+                )
+                draw_hand(image, hand_landmarks)
 
             command = recognize_command(detected_hands)
             now = time.monotonic()

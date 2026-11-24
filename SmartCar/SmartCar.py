@@ -129,9 +129,14 @@ SmartCar.on_action_recv(action_id="reculer", callback=reculer)
 SmartCar.on_action_recv(action_id="droite", callback=droite)
 SmartCar.on_action_recv(action_id="gauche", callback=gauche)
 SmartCar.on_action_recv(action_id="arret", callback=arret)
-# callbacks pas utilisés??
-# SmartCar.on_action_recv(action_id="allumer_led", callback=allumer_led)
-# SmartCar.on_action_recv(action_id="eteindre_led", callback=eteindre_led)
+# Les LED sont gérées par l'Arduino (clignotant quand la voiture tourne).
+# L'interface ALIVEcode envoie quand même ces actions : on les accepte sans rien faire
+# pour éviter l'erreur "protocol ... is not implemented".
+def ignorer_action(data):
+    pass
+
+SmartCar.on_action_recv(action_id="allumer_led", callback=ignorer_action)
+SmartCar.on_action_recv(action_id="eteindre_led", callback=ignorer_action)
 
 # Connexion de l'objet au serveur ALIVEcode
 SmartCar.run()
