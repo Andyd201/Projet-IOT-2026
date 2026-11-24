@@ -1,3 +1,4 @@
+import os
 import time
 
 import cv2
@@ -57,8 +58,46 @@ def recognize_command(hands):
     return None
 
 
+class PiCamera:
+    """Caméra du Raspberry Pi (picamera2) avec la même interface que cv2.VideoCapture."""
+
+    def __init__(self):
+        from picamera2 import Picamera2
+
+        self.picam = Picamera2()
+        # "RGB888" donne des pixels dans l'ordre BGR, comme OpenCV
+        config = self.picam.create_preview_configuration(
+            main={"size": (640, 480), "format": "RGB888"}
+        )
+        self.picam.configure(config)
+        self.picam.start()
+
+    def isOpened(self):
+        return True
+
+    def read(self):
+        return True, self.picam.capture_array()
+
+    def release(self):
+        self.picam.stop()
+        self.picam.close()
+
+
+def open_camera():
+    """Utilise la caméra du Pi si elle est disponible, sinon la webcam du PC."""
+    try:
+        cap = PiCamera()
+        print("Caméra du Raspberry Pi utilisée.")
+        return cap
+    except Exception:
+        print("Caméra du Pi indisponible, utilisation de la webcam.")
+        return cv2.VideoCapture(0)
+
+
 def start():
-    cap = cv2.VideoCapture(0)
+    cap = open_camera()
+    # Sur Linux sans écran (SSH), on ne peut pas ouvrir de fenêtre
+    show_window = os.name == "nt" or bool(os.environ.get("DISPLAY"))
     last_command = None
     pending_command = None
     pending_since = 0.0
@@ -68,7 +107,10 @@ def start():
         hand_controller.stop()
         return
 
-    print("HandController connecté. Appuyez sur q pour quitter.")
+    if show_window:
+        print("HandController connecté. Appuyez sur q pour quitter.")
+    else:
+        print("HandController connecté (sans fenêtre). Ctrl+C pour quitter.")
 
     with mp_hands.Hands(
         max_num_hands=2,
@@ -137,13 +179,14 @@ def start():
                 2,
                 cv2.LINE_AA,
             )
-            cv2.imshow("HandController", image)
-
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+            if show_window:
+                cv2.imshow("HandController", image)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
 
     cap.release()
-    cv2.destroyAllWindows()
+    if show_window:
+        cv2.destroyAllWindows()
     hand_controller.stop()
 
 

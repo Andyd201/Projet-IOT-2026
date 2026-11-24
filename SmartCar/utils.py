@@ -1,9 +1,10 @@
+import os
 import serial
 import time
 
 # --- CONFIGURATION DU PORT SÉRIE ---
-# Remplace par 'COM4' (Windows) ou '/dev/ttyACM2' (Linux/Mac) selon ton installation
-PORT = 'COM4'
+# COM4 sur Windows, /dev/ttyACM0 sur le Raspberry Pi (vérifier avec : ls /dev/ttyACM*)
+PORT = 'COM4' if os.name == 'nt' else '/dev/ttyACM0'
 BAUD_RATE = 9600
 
 try:
